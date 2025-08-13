@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI履歷篩選分析系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/docx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .api-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .api-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .upload-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-upload {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .file-upload:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .file-upload.dragover {
+            background: rgba(102, 126, 234, 0.15);
+            border-color: #764ba2;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .file-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .remove-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .remove-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .results h3 {
+            color: #667eea;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .candidate-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .candidate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .candidate-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .score-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .analysis-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .analysis-section h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            border-bottom: 2px solid #e1e5e9;
+            padding-bottom: 8px;
+        }
+
+        .personality-traits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .trait-tag {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .recommendation {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .interview-questions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .interview-questions h5 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .interview-questions ul {
+            padding-left: 20px;
+        }
+
+        .interview-questions li {
+            margin-bottom: 5px;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .upload-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px solid #c3e6cb;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .comparison-table th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+        }
+
+        .comparison-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .score-cell {
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .score-high { color: #28a745; }
+        .score-medium { color: #ffc107; }
+        .score-low { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 AI履歷篩選分析系統</h1>
+            <p>運用 Gemini AI 智能分析履歷與職位匹配度，提供專業評估報告</p>
+        </div>
+
+        <div class="api-section">
+            <h3>🔑 API設定</h3>
+            <div class="input-group">
+                <label for="apiKey">Gemini API Key:</label>
+                <input type="password" id="apiKey" placeholder="請輸入您的 Gemini API Key">
+                <small style="color: #666; margin-top: 5px; display: block;">
+                    請到 <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a> 取得 API Key
+                </small>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-card">
+                <h3>📋 職位說明書 (JD)</h3>
+                <div class="file-upload" id="jdUpload">
+                    <div class="upload-icon">📄</div>
+                    <p><strong>點擊或拖曳上傳職位說明書</strong></p>
+                    <p>支援 PDF、Word 格式</p>
+                </div>
+                <input type="file" id="jdFiles" multiple accept=".pdf,.doc,.docx" style="display: none;">
+                <div id="jdFileList" class="file-list"></div>
+            </div>
+
+            <div class="upload-card">
+                <h3>👥 履歷表</h3>
+                <div class="file-upload" id="resumeUpload">
+                    <div class="upload-icon">📝</div>
+                    <p><strong>點擊或拖曳上傳履歷表</strong></p>
+                    <p>支援 PDF、Word 格式</p>
+                </div>
+                <input type="file" id="resumeFiles" multiple accept=".pdf,.doc,.docx" style="display: none;">
+                <div id="resumeFileList" class="file-list"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="analyzeBtn">
+                ⚡ 開始分析
+            </button>
+            <button class="btn btn-secondary" id="clearBtn">
+                🗑️ 清除資料
+            </button>
+            <button class="btn btn-success" id="downloadBtn" style="display: none;">
+                📥 下載 Word 報告
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>AI 正在分析中，請稍候...</p>
+        </div>
+
+        <div class="results" id="results">
+            <h3>📊 分析結果</h3>
+            <div id="analysisContent"></div>
+        </div>
+    </div>
+
+    <script>
+        class ResumeAnalyzer {
+            constructor() {
+                this.jdFiles = [];
+                this.resumeFiles = [];
+                this.analysisResults = [];
+                this.apiKey = '';
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                // API Key
+                document.getElementById('apiKey').addEventListener('input', (e) => {
+                    this.apiKey = e.target.value;
+                });
+
+                // File uploads
+                this.setupFileUpload('jd', 'jdUpload', 'jdFiles', 'jdFileList');
+                this.setupFileUpload('resume', 'resumeUpload', 'resumeFiles', 'resumeFileList');
+
+                // Buttons
+                document.getElementById('analyzeBtn').addEventListener('click', () => this.startAnalysis());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearData());
+                document.getElementById('downloadBtn').addEventListener('click', () => this.downloadReport());
+            }
+
+            setupFileUpload(type, uploadId, fileInputId, fileListId) {
+                const uploadArea = document.getElementById(uploadId);
+                const fileInput = document.getElementById(fileInputId);
+                const fileList = document.getElementById(fileListId);
+
+                uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragover');
+                });
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragover');
+                });
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    this.handleFiles(Array.from(e.dataTransfer.files), type);
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    this.handleFiles(Array.from(e.target.files), type);
+                });
+            }
+
+            handleFiles(files, type) {
+                const targetArray = type === 'jd' ? this.jdFiles : this.resumeFiles;
+                const fileListId = type === 'jd' ? 'jdFileList' : 'resumeFileList';
+
+                files.forEach(file => {
+                    if (file.type.includes('pdf') || file.type.includes('word') || file.type.includes('document')) {
+                        targetArray.push(file);
+                    }
+                });
+
+                this.updateFileList(targetArray, fileListId, type);
+            }
+
+            updateFileList(files, fileListId, type) {
+                const fileList = document.getElementById(fileListId);
+                fileList.innerHTML = '';
+
+                files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div>
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                        </div>
+                        <button class="remove-btn" onclick="analyzer.removeFile(${index}, '${type}')">移除</button>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+            }
+
+            removeFile(index, type) {
+                if (type === 'jd') {
+                    this.jdFiles.splice(index, 1);
+                    this.updateFileList(this.jdFiles, 'jdFileList', 'jd');
+                } else {
+                    this.resumeFiles.splice(index, 1);
+                    this.updateFileList(this.resumeFiles, 'resumeFileList', 'resume');
+                }
+            }
+
+            async extractTextFromFile(file) {
+                if (file.type.includes('pdf')) {
+                    return await this.extractTextFromPDF(file);
+                } else if (file.type.includes('word') || file.type.includes('document')) {
+                    return await this.extractTextFromWord(file);
+                }
+                return '';
+            }
+
+            async extractTextFromPDF(file) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = '';
+
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        fullText += pageText + '\n';
+                    }
+
+                    return fullText;
+                } catch (error) {
+                    console.error('PDF解析錯誤:', error);
+                    return '';
+                }
+            }
+
+            async extractTextFromWord(file) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    return result.value;
+                } catch (error) {
+                    console.error('Word文件解析錯誤:', error);
+                    return '';
+                }
+            }
+
+            async startAnalysis() {
+                if (!this.apiKey) {
+                    this.showMessage('請先輸入 Gemini API Key', 'error');
+                    return;
+                }
+
+                if (this.jdFiles.length === 0 || this.resumeFiles.length === 0) {
+                    this.showMessage('請上傳職位說明書和履歷表', 'error');
+                    return;
+                }
+
+                document.getElementById('loading').classList.add('show');
+                document.getElementById('analyzeBtn').disabled = true;
+
+                try {
+                    // Extract text from all files
+                    const jdTexts = await Promise.all(
+                        this.jdFiles.map(async (file, index) => ({
+                            fileName: file.name,
+                            content: await this.extractTextFromFile(file),
+                            index: index
+                        }))
+                    );
+
+                    const resumeTexts = await Promise.all(
+                        this.resumeFiles.map(async (file, index) => ({
+                            fileName: file.name,
+                            content: await this.extractTextFromFile(file),
+                            index: index
+                        }))
+                    );
+
+                    // Analyze each resume against each job description
+                    this.analysisResults = [];
+                    
+                    for (const resume of resumeTexts) {
+                        const candidateResults = {
+                            candidateName: this.extractCandidateName(resume.content, resume.fileName),
+                            fileName: resume.fileName,
+                            jobAnalyses: []
+                        };
+
+                        for (const jd of jdTexts) {
+                            const analysis = await this.analyzeWithGemini(jd.content, resume.content, jd.fileName);
+                            candidateResults.jobAnalyses.push({
+                                jobTitle: this.extractJobTitle(jd.content, jd.fileName),
+                                fileName: jd.fileName,
+                                analysis: analysis
+                            });
+                        }
+
+                        this.analysisResults.push(candidateResults);
+                    }
+
+                    this.displayResults();
+                    this.showMessage('分析完成！', 'success');
+
+                } catch (error) {
+                    console.error('分析錯誤:', error);
+                    this.showMessage('分析過程中發生錯誤，請稍後再試', 'error');
+                } finally {
+                    document.getElementById('loading').classList.remove('show');
+                    document.getElementById('analyzeBtn').disabled = false;
+                }
+            }
+
+            extractCandidateName(resumeContent, fileName) {
+                // 嘗試從履歷內容中提取姓名
+                const namePatterns = [
+                    /姓名[：:]\s*([^\n\r]{2,10})/,
+                    /Name[：:]\s*([^\n\r]{2,20})/i,
+                    /^([^\n\r]{2,10})$/m
+                ];
+
+                for (const pattern of namePatterns) {
+                    const match = resumeContent.match(pattern);
+                    if (match && match[1].trim()) {
+                        return match[1].trim();
+                    }
+                }
+
+                // 如果無法提取，使用檔名
+                return fileName.replace(/\.(pdf|docx?|txt)$/i, '');
+            }
+
+            extractJobTitle(jdContent, fileName) {
+                // 嘗試從JD內容中提取職位名稱
+                const titlePatterns = [
+                    /職位[：:]\s*([^\n\r]{2,30})/,
+                    /職缺[：:]\s*([^\n\r]{2,30})/,
+                    /Position[：:]\s*([^\n\r]{2,30})/i,
+                    /Job Title[：:]\s*([^\n\r]{2,30})/i
+                ];
+
+                for (const pattern of titlePatterns) {
+                    const match = jdContent.match(pattern);
+                    if (match && match[1].trim()) {
+                        return match[1].trim();
+                    }
+                }
+
+                // 如果無法提取，使用檔名
+                return fileName.replace(/\.(pdf|docx?|txt)$/i, '');
+            }
+
+            async analyzeWithGemini(jdContent, resumeContent, jobFileName) {
+                const prompt = `
+請分析以下職位說明書與履歷的匹配度，並提供詳細的評估報告。
+
+職位說明書：
+${jdContent}
+
+履歷內容：
+${resumeContent}
+
+請按照以下格式進行分析，並以繁體中文回應：
+
+1. 職務適合度評分（1-10分）
+2. 技能匹配分析
+3. 經驗匹配分析
+4. 五大人格特質分析（開放性、嚴謹性、外向性、親和性、神經質）
+5. DISC人格特質（D主導型、I影響型、S穩定型、C謹慎型）
+6. Colors Style分析（金色、橙色、綠色、藍色）
+7. 離職風險評估（1-10分，10分為最高風險）
+8. 與主管溝通注意事項
+9. 面試建議問題（請依據EAR原則：Event事件、Action行動、Result結果）
+10. 是否建議面試（是/否）
+11. 面試優先順序建議
+
+請提供具體、實用的分析內容。
+                `;
+
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${this.apiKey}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: prompt
+                                }]
+                            }],
+                            generationConfig: {
+                                temperature: 0.7,
+                                topK: 40,
+                                topP: 0.95,
+                                maxOutputTokens: 2048,
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API請求失敗: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    return data.candidates[0].content.parts[0].text;
+                } catch (error) {
+                    console.error('Gemini API錯誤:', error);
+                    return '分析過程中發生錯誤，請檢查API Key是否正確或稍後再試。';
+                }
+            }
+
+            displayResults() {
+                const resultsDiv = document.getElementById('results');
+                const contentDiv = document.getElementById('analysisContent');
+                
+                contentDiv.innerHTML = '';
+
+                // Create comparison table
+                const comparisonTable = this.createComparisonTable();
+                contentDiv.appendChild(comparisonTable);
+
+                // Display detailed analysis for each candidate
+                this.analysisResults.forEach((candidate, index) => {
+                    const candidateCard = document.createElement('div');
+                    candidateCard.className = 'candidate-card';
+                    
+                    // Calculate average score across all jobs
+                    const avgScore = this.calculateAverageScore(candidate);
+                    
+                    candidateCard.innerHTML = `
+                        <div class="candidate-header">
+                            <div class="candidate-name">${candidate.candidateName}</div>
+                            <div class="score-badge">平均分數: ${avgScore}/10</div>
+                        </div>
+                        <div class="job-analyses">
+                            ${candidate.jobAnalyses.map(job => this.formatJobAnalysis(job)).join('')}
+                        </div>
+                    `;
+                    
+                    contentDiv.appendChild(candidateCard);
+                });
+
+                resultsDiv.classList.add('show');
+                document.getElementById('downloadBtn').style.display = 'inline-flex';
+            }
+
+            createComparisonTable() {
+                const table = document.createElement('table');
+                table.className = 'comparison-table';
+                
+                // Create header
+                const headerRow = document.createElement('tr');
+                headerRow.innerHTML = '<th>應徵者</th>';
+                
+                // Add job titles as columns
+                if (this.analysisResults.length > 0) {
+                    this.analysisResults[0].jobAnalyses.forEach(job => {
+                        headerRow.innerHTML += `<th>${job.jobTitle}</th>`;
+                    });
+                }
+                headerRow.innerHTML += '<th>最適合職位</th><th>面試建議</th>';
+                
+                table.appendChild(headerRow);
+                
+                // Create data rows
+                this.analysisResults.forEach(candidate => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td><strong>${candidate.candidateName}</strong></td>`;
+                    
+                    let bestScore = 0;
+                    let bestJob = '';
+                    
+                    candidate.jobAnalyses.forEach(job => {
+                        const score = this.extractScore(job.analysis);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestJob = job.jobTitle;
+                        }
+                        
+                        const scoreClass = score >= 7 ? 'score-high' : score >= 5 ? 'score-medium' : 'score-low';
+                        row.innerHTML += `<td class="score-cell ${scoreClass}">${score}/10</td>`;
+                    });
+                    
+                    const recommendation = this.extractRecommendation(candidate.jobAnalyses[0].analysis);
+                    row.innerHTML += `<td><strong>${bestJob}</strong> (${bestScore}/10)</td>`;
+                    row.innerHTML += `<td>${recommendation ? '建議面試' : '不建議面試'}</td>`;
+                    
+                    table.appendChild(row);
+                });
+                
+                return table;
+            }
+
+            extractScore(analysisText) {
+                const scoreMatch = analysisText.match(/職務適合度評分[：:]\s*(\d+)/);
+                return scoreMatch ? parseInt(scoreMatch[1]) : 0;
+            }
+
+            extractRecommendation(analysisText) {
+                return analysisText.includes('建議面試：是') || analysisText.includes('是否建議面試：是');
+            }
+
+            calculateAverageScore(candidate) {
+                const scores = candidate.jobAnalyses.map(job => this.extractScore(job.analysis));
+                const avg = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+                return Math.round(avg * 10) / 10;
+            }
+
+            formatJobAnalysis(job) {
+                return `
+                    <div class="analysis-section">
+                        <h4>📋 ${job.jobTitle} - 詳細分析</h4>
+                        <div class="analysis-content">
+                            ${this.parseAnalysisContent(job.analysis)}
+                        </div>
+                    </div>
+                `;
+            }
+
+            parseAnalysisContent(analysis) {
+                // Parse the analysis text and format it nicely
+                const sections = analysis.split(/\d+\.\s/);
+                let formattedContent = '';
+                
+                sections.forEach((section, index) => {
+                    if (section.trim()) {
+                        const lines = section.trim().split('\n');
+                        const title = lines[0];
+                        const content = lines.slice(1).join('\n');
+                        
+                        if (title.includes('人格特質') || title.includes('DISC') || title.includes('Colors')) {
+                            formattedContent += `
+                                <div class="personality-section">
+                                    <strong>${title}</strong>
+                                    <div class="personality-traits">
+                                        ${this.formatPersonalityTraits(content)}
+                                    </div>
+                                </div>
+                            `;
+                        } else if (title.includes('面試建議問題')) {
+                            formattedContent += `
+                                <div class="interview-questions">
+                                    <h5>${title}</h5>
+                                    ${this.formatInterviewQuestions(content)}
+                                </div>
+                            `;
+                        } else {
+                            formattedContent += `
+                                <div class="analysis-item">
+                                    <strong>${title}</strong>
+                                    <p>${content.replace(/\n/g, '<br>')}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+                
+                return formattedContent;
+            }
+
+            formatPersonalityTraits(content) {
+                const traits = content.split(/[,，;；]/);
+                return traits.map(trait => {
+                    if (trait.trim()) {
+                        return `<span class="trait-tag">${trait.trim()}</span>`;
+                    }
+                }).join('');
+            }
+
+            formatInterviewQuestions(content) {
+                const questions = content.split(/\n/).filter(line => line.trim());
+                const questionList = questions.map(q => `<li>${q.trim()}</li>`).join('');
+                return `<ul>${questionList}</ul>`;
+            }
+
+            async downloadReport() {
+                if (this.analysisResults.length === 0) {
+                    this.showMessage('沒有分析結果可下載', 'error');
+                    return;
+                }
+
+                try {
+                    // Create Word document using docx library
+                    const doc = new docx.Document({
+                        sections: [{
+                            properties: {},
+                            children: [
+                                new docx.Paragraph({
+                                    children: [
+                                        new docx.TextRun({
+                                            text: "AI履歷篩選分析報告",
+                                            bold: true,
+                                            size: 32,
+                                        }),
+                                    ],
+                                    alignment: docx.AlignmentType.CENTER,
+                                    spacing: { after: 400 }
+                                }),
+                                new docx.Paragraph({
+                                    children: [
+                                        new docx.TextRun({
+                                            text: `生成日期: ${new Date().toLocaleDateString('zh-TW')}`,
+                                            size: 24,
+                                        }),
+                                    ],
+                                    alignment: docx.AlignmentType.CENTER,
+                                    spacing: { after: 600 }
+                                }),
+                                ...this.generateDocumentContent()
+                            ]
+                        }]
+                    });
+
+                    const buffer = await docx.Packer.toBuffer(doc);
+                    const blob = new Blob([buffer], { 
+                        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+                    });
+                    
+                    saveAs(blob, `履歷篩選分析報告_${new Date().toISOString().split('T')[0]}.docx`);
+                    this.showMessage('報告下載成功！', 'success');
+
+                } catch (error) {
+                    console.error('生成Word文件錯誤:', error);
+                    this.showMessage('報告生成失敗，請稍後再試', 'error');
+                }
+            }
+
+            generateDocumentContent() {
+                const content = [];
+                
+                // Summary table
+                content.push(
+                    new docx.Paragraph({
+                        children: [
+                            new docx.TextRun({
+                                text: "評分總覽",
+                                bold: true,
+                                size: 28,
+                            }),
+                        ],
+                        spacing: { before: 400, after: 200 }
+                    })
+                );
+
+                // Create summary table content
+                this.analysisResults.forEach(candidate => {
+                    content.push(
+                        new docx.Paragraph({
+                            children: [
+                                new docx.TextRun({
+                                    text: `應徵者: ${candidate.candidateName}`,
+                                    bold: true,
+                                    size: 24,
+                                }),
+                            ],
+                            spacing: { before: 300, after: 100 }
+                        })
+                    );
+
+                    candidate.jobAnalyses.forEach(job => {
+                        const score = this.extractScore(job.analysis);
+                        content.push(
+                            new docx.Paragraph({
+                                children: [
+                                    new docx.TextRun({
+                                        text: `${job.jobTitle}: ${score}/10分`,
+                                        size: 22,
+                                    }),
+                                ],
+                                spacing: { after: 100 }
+                            })
+                        );
+                    });
+                });
+
+                // Detailed analysis
+                content.push(
+                    new docx.Paragraph({
+                        children: [
+                            new docx.TextRun({
+                                text: "詳細分析報告",
+                                bold: true,
+                                size: 28,
+                            }),
+                        ],
+                        spacing: { before: 600, after: 200 }
+                    })
+                );
+
+                this.analysisResults.forEach(candidate => {
+                    content.push(
+                        new docx.Paragraph({
+                            children: [
+                                new docx.TextRun({
+                                    text: candidate.candidateName,
+                                    bold: true,
+                                    size: 26,
+                                }),
+                            ],
+                            spacing: { before: 400, after: 200 }
+                        })
+                    );
+
+                    candidate.jobAnalyses.forEach(job => {
+                        content.push(
+                            new docx.Paragraph({
+                                children: [
+                                    new docx.TextRun({
+                                        text: `職位: ${job.jobTitle}`,
+                                        bold: true,
+                                        size: 24,
+                                    }),
+                                ],
+                                spacing: { before: 300, after: 100 }
+                            })
+                        );
+
+                        // Add analysis content
+                        const analysisLines = job.analysis.split('\n');
+                        analysisLines.forEach(line => {
+                            if (line.trim()) {
+                                content.push(
+                                    new docx.Paragraph({
+                                        children: [
+                                            new docx.TextRun({
+                                                text: line.trim(),
+                                                size: 22,
+                                            }),
+                                        ],
+                                        spacing: { after: 100 }
+                                    })
+                                );
+                            }
+                        });
+                    });
+                });
+
+                return content;
+            }
+
+            clearData() {
+                this.jdFiles = [];
+                this.resumeFiles = [];
+                this.analysisResults = [];
+                
+                document.getElementById('jdFileList').innerHTML = '';
+                document.getElementById('resumeFileList').innerHTML = '';
+                document.getElementById('results').classList.remove('show');
+                document.getElementById('downloadBtn').style.display = 'none';
+                
+                this.showMessage('資料已清除', 'success');
+            }
+
+            showMessage(message, type) {
+                // Remove existing messages
+                const existingMessages = document.querySelectorAll('.error-message, .success-message');
+                existingMessages.forEach(msg => msg.remove());
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+                messageDiv.textContent = message;
+                
+                const container = document.querySelector('.container');
+                container.insertBefore(messageDiv, container.firstChild);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    messageDiv.remove();
+                }, 5000);
+            }
+        }
+
+        // Initialize the analyzer
+        const analyzer = new ResumeAnalyzer();
+    </script>
+</body>
+</html>
